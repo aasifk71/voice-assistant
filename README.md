@@ -8,11 +8,7 @@ Designed for **ShopEasy customer support**, Aria can handle spoken customer quer
 
 ---
 
-# 🎬 Demo
 
-> *Add Loom demo link after recording*
-
----
 
 # 🗣️ Sample Conversation
 
