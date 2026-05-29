@@ -1,0 +1,16 @@
+# Core pipeline
+faster-whisper>=1.0.0
+httpx>=0.27.0
+
+# Server
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# Audio (for local testing / CLI scripts)
+sounddevice>=0.4.6
+numpy>=1.26.0
+
+# Piper TTS is installed as a system binary:
+# pip install piper-tts
+# or: https://github.com/rhasspy/piper#installation

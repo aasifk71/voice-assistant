@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0a0f;
+    --surface:   #12121a;
+    --border:    #1e1e2e;
+    --accent:    #7c6af7;
+    --accent2:   #4fc3f7;
+    --text:      #e2e2f0;
+    --muted:     #5a5a7a;
+    --danger:    #f07178;
+    --success:   #a3e6a3;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  header h1 {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  header p {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Orb ── */
+  .orb-wrap {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    margin: 0 auto 40px;
+    cursor: pointer;
+  }
+
+  .orb {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 36%, #2d2060 0%, #0a0a1a 70%);
+    border: 1.5px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, border-color 0.3s;
+    position: relative;
+    z-index: 1;
+  }
+
+  .orb-ring {
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 1.5px solid transparent;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+
+  .orb-ring2 {
+    position: absolute;
+    inset: -18px;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+
+  .orb-icon {
+    width: 36px;
+    height: 36px;
+    stroke: var(--muted);
+    fill: none;
+    transition: stroke 0.3s;
+  }
+
+  /* States */
+  .orb-wrap.idle .orb { border-color: var(--border); }
+  .orb-wrap.idle .orb-icon { stroke: var(--muted); }
+
+  .orb-wrap.ready .orb { border-color: #3d3060; }
+  .orb-wrap.ready .orb-icon { stroke: var(--accent); }
+  .orb-wrap.ready .orb-ring { border-color: rgba(124,106,247,0.25); }
+
+  .orb-wrap.recording .orb { border-color: var(--danger); transform: scale(1.04); }
+  .orb-wrap.recording .orb-icon { stroke: var(--danger); }
+  .orb-wrap.recording .orb-ring { border-color: rgba(240,113,120,0.35); animation: pulse 1.2s ease-in-out infinite; }
+  .orb-wrap.recording .orb-ring2 { border-color: rgba(240,113,120,0.12); animation: pulse 1.2s ease-in-out infinite 0.4s; }
+
+  .orb-wrap.thinking .orb { border-color: var(--accent2); }
+  .orb-wrap.thinking .orb-icon { stroke: var(--accent2); }
+  .orb-wrap.thinking .orb-ring { border-color: rgba(79,195,247,0.3); animation: spin 2s linear infinite; }
+
+  .orb-wrap.speaking .orb { border-color: var(--success); }
+  .orb-wrap.speaking .orb-icon { stroke: var(--success); }
+  .orb-wrap.speaking .orb-ring { border-color: rgba(163,230,163,0.3); animation: pulse 0.8s ease-in-out infinite; }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.6; }
+    50% { transform: scale(1.06); opacity: 1; }
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── Status ── */
+  .status {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 36px;
+    text-transform: uppercase;
+    height: 1.4em;
+    transition: color 0.3s;
+  }
+  .status.recording { color: var(--danger); }
+  .status.thinking  { color: var(--accent2); }
+  .status.speaking  { color: var(--success); }
+
+  /* ── Conversation log ── */
+  .log {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .bubble {
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    max-width: 88%;
+    border: 1px solid var(--border);
+    animation: fadeUp 0.25s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .bubble.user {
+    align-self: flex-end;
+    background: #181830;
+    border-color: #2a2a48;
+    color: var(--text);
+  }
+
+  .bubble.assistant {
+    align-self: flex-start;
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text);
+  }
+
+  .bubble .label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .bubble.user .label { color: #6a6a9a; }
+  .bubble.assistant .label { color: #5a7a5a; }
+
+  /* ── Latency bar ── */
+  .latency-bar {
+    width: 100%;
+    max-width: 600px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    display: none;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .latency-bar.visible { display: flex; }
+
+  .latency-item span:first-child { color: var(--muted); }
+  .latency-item span:last-child  { color: var(--text); margin-left: 4px; }
+  .latency-item .total-val       { color: var(--accent2); font-weight: 500; }
+
+  /* ── Hold button ── */
+  .hold-hint {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.08em;
+    margin-top: 8px;
+  }
+
+  /* ── Error toast ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2a0f10;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    padding: 10px 20px;
+    border-radius: 6px;
+    display: none;
+    z-index: 100;
+  }
+  .toast.show { display: block; animation: fadeUp 0.2s ease; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Voice Assistant</h1>
+  <p>open-source · on-device · JarvisLabs GPU</p>
+</header>
+
+<!-- Orb mic button -->
+<div class="orb-wrap idle" id="orb" title="Hold Space or click to talk">
+  <div class="orb-ring2"></div>
+  <div class="orb-ring"></div>
+  <div class="orb">
+    <svg class="orb-icon" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="2" width="6" height="12" rx="3"/>
+      <path d="M5 10a7 7 0 0 0 14 0"/>
+      <line x1="12" y1="19" x2="12" y2="22"/>
+      <line x1="8" y1="22" x2="16" y2="22"/>
+    </svg>
+  </div>
+</div>
+
+<div class="status" id="status">click orb or hold space to talk</div>
+
+<!-- Conversation log -->
+<div class="log" id="log"></div>
+
+<!-- Latency strip -->
+<div class="latency-bar" id="latency-bar">
+  <div class="latency-item"><span>STT</span><span id="lat-stt">—</span></div>
+  <div class="latency-item"><span>LLM</span><span id="lat-llm">—</span></div>
+  <div class="latency-item"><span>TTS</span><span id="lat-tts">—</span></div>
+  <div class="latency-item"><span>Total</span><span class="total-val" id="lat-total">—</span></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const WS_URL = `ws://${location.host}/ws`;
+
+const orb    = document.getElementById('orb');
+const status = document.getElementById('status');
+const log    = document.getElementById('log');
+const latBar = document.getElementById('latency-bar');
+const toast  = document.getElementById('toast');
+
+let ws          = null;
+let mediaStream = null;
+let recorder    = null;
+let audioChunks = [];
+let isRecording = false;
+let audioCtx    = null;
+
+// ── WebSocket ──────────────────────────────────────────────────────────────
+function connect() {
+  ws = new WebSocket(WS_URL);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => {
+    setOrb('ready');
+    setStatus('ready — click orb or hold space');
+  };
+
+  ws.onmessage = (ev) => {
+    if (typeof ev.data === 'string') {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === 'transcript' && msg.text) {
+        addBubble('user', msg.text);
+        setOrb('thinking');
+        setStatus('thinking…');
+      }
+      if (msg.type === 'reply' && msg.text) {
+        addBubble('assistant', msg.text);
+      }
+      if (msg.type === 'latency') {
+        showLatency(msg);
+      }
+      if (msg.type === 'error') {
+        showToast(msg.message);
+        setOrb('ready');
+        setStatus('error — try again');
+      }
+    } else {
+      // Binary = WAV audio
+      playWav(ev.data);
+    }
+  };
+
+  ws.onclose = () => {
+    setOrb('idle');
+    setStatus('disconnected — refresh to reconnect');
+    setTimeout(connect, 3000);
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+// ── Recording ──────────────────────────────────────────────────────────────
+async function startRecording() {
+  if (isRecording) return;
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true }
+    });
+  } catch (e) {
+    showToast('Microphone access denied');
+    return;
+  }
+
+  isRecording = true;
+  audioChunks = [];
+
+  recorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm;codecs=opus' });
+  recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+
+  recorder.onstop = async () => {
+    mediaStream.getTracks().forEach(t => t.stop());
+    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+    const arrayBuffer = await blob.arrayBuffer();
+
+    // Decode to PCM via Web Audio
+    if (!audioCtx) audioCtx = new AudioContext({ sampleRate: 16000 });
+    const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+    const pcm = decoded.getChannelData(0); // Float32
+    const pcm16 = float32ToInt16(pcm);
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(pcm16.buffer);
+      setStatus('processing…');
+    }
+  };
+
+  recorder.start();
+  setOrb('recording');
+  setStatus('recording… release to send');
+}
+
+function stopRecording() {
+  if (!isRecording || !recorder) return;
+  isRecording = false;
+  recorder.stop();
+}
+
+function float32ToInt16(f32) {
+  const out = new Int16Array(f32.length);
+  for (let i = 0; i < f32.length; i++) {
+    const s = Math.max(-1, Math.min(1, f32[i]));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return out;
+}
+
+// ── Audio playback ─────────────────────────────────────────────────────────
+async function playWav(arrayBuffer) {
+  setOrb('speaking');
+  setStatus('speaking…');
+  if (!audioCtx) audioCtx = new AudioContext();
+  try {
+    const decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    const source  = audioCtx.createBufferSource();
+    source.buffer = decoded;
+    source.connect(audioCtx.destination);
+    source.onended = () => {
+      setOrb('ready');
+      setStatus('ready — click orb or hold space');
+    };
+    source.start();
+  } catch (e) {
+    console.error('Playback error:', e);
+    setOrb('ready');
+    setStatus('ready');
+  }
+}
+
+// ── UI helpers ─────────────────────────────────────────────────────────────
+function setOrb(state) {
+  orb.className = `orb-wrap ${state}`;
+}
+
+function setStatus(text, cls = '') {
+  status.textContent = text;
+  status.className = `status ${cls}`;
+}
+
+function addBubble(role, text) {
+  const div = document.createElement('div');
+  div.className = `bubble ${role}`;
+  div.innerHTML = `<div class="label">${role === 'user' ? 'you' : 'assistant'}</div>${escapeHtml(text)}`;
+  log.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function showLatency(data) {
+  latBar.classList.add('visible');
+  document.getElementById('lat-stt').textContent   = data.stt   + 's';
+  document.getElementById('lat-llm').textContent   = data.llm   + 's';
+  document.getElementById('lat-tts').textContent   = data.tts   + 's';
+  document.getElementById('lat-total').textContent = data.total + 's';
+}
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 4000);
+}
+
+function escapeHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Input bindings ─────────────────────────────────────────────────────────
+orb.addEventListener('mousedown',  startRecording);
+orb.addEventListener('mouseup',    stopRecording);
+orb.addEventListener('mouseleave', stopRecording);
+
+orb.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
+orb.addEventListener('touchend',   (e) => { e.preventDefault(); stopRecording(); });
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !e.repeat) { e.preventDefault(); startRecording(); }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'Space') { e.preventDefault(); stopRecording(); }
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+connect();
+</script>
+</body>
+</html>
