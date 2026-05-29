@@ -1,58 +1,28 @@
 # Real-Time Voice Assistant
 
-A low-latency voice assistant built entirely on open-source models, running on GPU infrastructure powered by JarvisLabs.
+A low-latency voice assistant built entirely using open-source models running locally on GPU infrastructure.
 
-## Pipeline
-
-Mic → Whisper (STT) → Mistral 7B (LLM) → Piper (TTS) → Speaker
+The system captures live microphone audio from the browser, transcribes speech using Whisper, generates responses with Mistral 7B, and converts responses back into speech using Piper TTS — all in under one second of average latency. The goal was to create a fully local alternative to cloud-based assistants while maintaining natural conversational responsiveness.
 
 ---
 
-## Demo
+# What It Does
 
-> Add a short Loom video or GIF here after recording.
+This project enables real-time voice conversations with an AI assistant directly from the browser.
 
-Typical end-to-end latency on an RTX 4090:
-
-| Stage                     | Time      |
-| ------------------------- | --------- |
-| STT (Whisper Small)       | ~0.2s     |
-| LLM (Mistral 7B via vLLM) | ~0.5s     |
-| TTS (Piper)               | ~0.15s    |
-| **Total**                 | **~0.9s** |
+Users can hold a key or click a button to speak naturally, receive near-instant AI responses, and hear synthesized speech streamed back in real time. Unlike most commercial assistants, the entire pipeline runs on open-source models without depending on proprietary APIs.
 
 ---
 
-# Architecture
+# Why I Built This
 
-```text
-Browser (Mic)
-      │
-      ▼
-   PCM Audio
-      │
-      ▼
- WebSocket Connection
-      │
-      ▼
-FastAPI Server (JarvisLabs GPU)
-      │
- ┌────┼───────────────┐
- ▼    ▼               ▼
-Whisper          Mistral 7B         Piper TTS
-(STT)               (LLM)             (TTS)
- └────┼───────────────┘
-      │
-      ▼
-WebSocket Response (WAV Audio)
-      │
-      ▼
-Browser Speaker
-```
+Most voice assistants either rely heavily on cloud APIs or suffer from noticeable latency that breaks conversational flow. I wanted to explore whether modern open-source models were mature enough to deliver a genuinely responsive voice experience on commodity GPU hardware.
+
+This project also gave me the opportunity to work across multiple real-time systems domains simultaneously: low-latency audio streaming, WebSockets, GPU inference optimization, speech processing, and orchestration between independent AI models. I specifically chose this problem because it combines systems engineering with applied AI in a way that feels close to real production infrastructure.
 
 ---
 
-# Setup
+# How to Run It
 
 ## 1. Clone the Repository
 
@@ -60,6 +30,8 @@ Browser Speaker
 git clone https://github.com/YOUR_USERNAME/voice-assistant.git
 cd voice-assistant
 ```
+
+---
 
 ## 2. Install Dependencies
 
@@ -76,20 +48,20 @@ pip install piper-tts
 cp .env.example .env
 ```
 
-Edit `.env` with your preferred backend and model paths.
+Update `.env` with your preferred model paths and inference backend.
 
 ---
 
 ## 4. Start the LLM Backend
 
-### Option A — Ollama (Easy Setup)
+### Option A — Ollama
 
 ```bash
 ollama pull mistral
 ollama serve
 ```
 
-### Option B — vLLM (Recommended for JarvisLabs)
+### Option B — vLLM (Recommended)
 
 ```bash
 pip install vllm
@@ -113,132 +85,95 @@ python -m piper \
 
 ---
 
-## 6. Run the FastAPI Server
+## 6. Start the FastAPI Server
 
 ```bash
 uvicorn server.main:app --host 0.0.0.0 --port 8080
 ```
 
-Open the application in your browser:
+Open:
 
 ```text
 http://localhost:8080
 ```
 
-### Controls
-
-* Hold `Space` to talk
-* Or click the orb button
-* Release to send audio
+Hold `Space` or click the orb to talk.
 
 ---
 
-# Project Structure
+# Architecture Decisions
 
-```text
-voice-assistant/
-├── server/
-│   ├── main.py        # FastAPI + WebSocket server
-│   ├── stt.py         # Whisper transcription
-│   ├── llm.py         # LLM inference (vLLM / Ollama)
-│   └── tts.py         # Piper TTS synthesis
-│
-├── client/
-│   └── index.html     # Browser UI (mic capture + audio playback)
-│
-├── models/            # Downloaded Piper voice models
-├── .env.example
-├── requirements.txt
-└── README.md
-```
+## WebSockets Instead of REST
+
+I used WebSockets for bidirectional audio streaming because voice interaction requires continuous low-latency communication. REST would introduce unnecessary request overhead and make real-time streaming significantly harder.
 
 ---
 
-# Testing Individual Modules
+## Faster-Whisper Over OpenAI Whisper API
 
-## Test STT Only
-
-Records 5 seconds from the microphone and transcribes it.
-
-```bash
-python -m server.stt
-```
+I chose Faster-Whisper because it runs locally, has lower latency, and avoids recurring API costs. Since the goal was a fully open-source local assistant, depending on a hosted STT API would defeat the purpose.
 
 ---
 
-## Test LLM Only
+## vLLM for LLM Inference
 
-```bash
-python -m server.llm
-```
+I used vLLM instead of raw Hugging Face transformers because it provides significantly faster token generation and optimized GPU memory handling. This reduced overall response latency while making larger models feasible on limited VRAM.
 
 ---
 
-## Test TTS Only
+## Piper Instead of Cloud TTS
 
-```bash
-python -m server.tts "Hello, this is a test."
-```
+Most cloud TTS services sound great but introduce network latency and API dependency. Piper offered an excellent tradeoff between speed, offline capability, and acceptable voice quality.
 
 ---
 
-# Optimisation Notes
+## Push-to-Talk Instead of Always Listening
 
-## Whisper Model Selection
-
-| Model    | Speed                        | Quality         |
-| -------- | ---------------------------- | --------------- |
-| `tiny`   | Fastest (~50ms)              | Lowest          |
-| `small`  | Best latency/quality balance | Recommended     |
-| `medium` | Slower                       | Higher accuracy |
+I intentionally started with push-to-talk interaction because continuous wake-word systems add substantial complexity around VAD, false activations, and streaming pipelines. This kept the initial system simpler and more reliable.
 
 ---
 
-## Streaming LLM Responses
+# What I Used AI For
 
-`stream_chat()` inside `llm.py` yields tokens as they arrive.
+I used AI tools primarily for boilerplate acceleration and debugging assistance.
 
-This can be connected directly to TTS generation for even lower perceived latency.
+AI helped generate:
 
----
+* Initial FastAPI WebSocket scaffolding
+* Basic browser audio capture code
+* Some repetitive setup/configuration commands
+* README structure drafts
 
-## Piper Voice Recommendations
+The core orchestration logic, latency optimization decisions, streaming pipeline design, and system integration were written and refined manually.
 
-| Voice                 | Notes                        |
-| --------------------- | ---------------------------- |
-| `en_US-lessac-medium` | Natural sounding             |
-| `en_US-ryan-low`      | ~2× faster but lower quality |
+I also overrode several AI-generated suggestions:
 
----
+* I removed polling-based communication in favor of persistent WebSockets because polling introduced avoidable latency.
+* I avoided oversized Whisper models despite AI recommendations for accuracy, prioritizing responsiveness instead.
+* I simplified the frontend interaction model after AI-generated UI suggestions added unnecessary complexity.
 
-## Quantization
-
-Using AWQ quantization with vLLM reduces VRAM usage and improves inference speed:
-
-```bash
---quantization awq
-```
+Most of the engineering effort ultimately went into connecting independent components into a stable low-latency pipeline rather than generating isolated code snippets.
 
 ---
 
-# Future Improvements
+# What I Would Change With 4 More Weeks
 
-* [ ] Streaming TTS (sentence-by-sentence generation)
-* [ ] Wake-word detection using OpenWakeWord
-* [ ] Persistent conversation memory
-* [ ] Tool-using LLM agents (web search, calendar, etc.)
-* [ ] Docker support + one-click JarvisLabs deployment
-* [ ] Interruptible speech generation
-* [ ] Multi-language support
-* [ ] Voice activity detection (VAD)
+If I were shipping this to real users, I would focus heavily on streaming and reliability improvements.
 
----
+The biggest upgrade would be true streaming speech synthesis — generating audio sentence-by-sentence while the LLM is still responding. This would significantly reduce perceived latency and make conversations feel much more natural.
 
-# Acknowledgements
+Other major improvements would include:
 
-* faster-whisper — CTranslate2-based Whisper implementation
-* vLLM — High-throughput LLM inference engine
-* Piper — Fast local text-to-speech engine
-* JarvisLabs — GPU infrastructure provider
+* Wake-word detection for hands-free usage
+* Voice activity detection (VAD)
+* Interruptible speech generation
+* Persistent conversation memory
+* Multi-user session handling
+* Dockerized deployment
+* Better frontend UX and accessibility
+* Multi-language support
+* Observability dashboards for latency monitoring
+
+I would also benchmark smaller instruction-tuned models to optimize the latency/quality tradeoff further for consumer GPUs.
 
 ---
