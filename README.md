@@ -1,28 +1,139 @@
-# Real-Time Voice Assistant
+# 🎙️ Aria — Real-Time Voice Assistant (Customer Support)
 
-A low-latency voice assistant built entirely using open-source models running locally on GPU infrastructure.
+Aria is a low-latency conversational voice assistant built entirely using open-source models running on JarvisLabs GPU infrastructure.
 
-The system captures live microphone audio from the browser, transcribes speech using Whisper, generates responses with Mistral 7B, and converts responses back into speech using Piper TTS — all in under one second of average latency. The goal was to create a fully local alternative to cloud-based assistants while maintaining natural conversational responsiveness.
+Designed for **ShopEasy customer support**, Aria can handle spoken customer queries in real time — listening, reasoning, and responding naturally through speech.
 
----
-
-# What It Does
-
-This project enables real-time voice conversations with an AI assistant directly from the browser.
-
-Users can hold a key or click a button to speak naturally, receive near-instant AI responses, and hear synthesized speech streamed back in real time. Unlike most commercial assistants, the entire pipeline runs on open-source models without depending on proprietary APIs.
+**Hold Space → Speak → Release → Hear Aria respond.**
 
 ---
 
-# Why I Built This
+# 🎬 Demo
 
-Most voice assistants either rely heavily on cloud APIs or suffer from noticeable latency that breaks conversational flow. I wanted to explore whether modern open-source models were mature enough to deliver a genuinely responsive voice experience on commodity GPU hardware.
-
-This project also gave me the opportunity to work across multiple real-time systems domains simultaneously: low-latency audio streaming, WebSockets, GPU inference optimization, speech processing, and orchestration between independent AI models. I specifically chose this problem because it combines systems engineering with applied AI in a way that feels close to real production infrastructure.
+> *Add Loom demo link after recording*
 
 ---
 
-# How to Run It
+# 🗣️ Sample Conversation
+
+| Turn | Speaker | Text                                                                                                                                     |
+| ---- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | User    | "Hi, I want to return a jacket I bought last week."                                                                                      |
+| 1    | Aria    | "No problem! ShopEasy accepts returns within 30 days. Could you share your order number so I can get that started for you?"              |
+| 2    | User    | "My order number is 98765."                                                                                                              |
+| 2    | Aria    | "Got it! I've initiated the return for order 98765, and a prepaid shipping label will be sent to your registered email within the hour." |
+| 3    | User    | "How long does the refund take?"                                                                                                         |
+| 3    | Aria    | "Once we receive the item, refunds are typically processed within 5 to 7 business days back to your original payment method."            |
+
+---
+
+# 🚀 What It Does
+
+Aria enables users to have natural spoken conversations with an AI-powered customer support assistant directly from the browser.
+
+The system:
+
+1. Captures live microphone audio
+2. Converts speech to text using Whisper
+3. Generates contextual responses using Mistral 7B
+4. Converts responses back into speech using Piper TTS
+5. Streams audio back to the browser in real time
+
+The goal was to build a fully open-source voice assistant with low enough latency that the interaction feels conversational rather than sequential.
+
+---
+
+# ❓ Why I Built This
+
+Most customer support systems still rely on chatbots or high-latency voice systems backed by proprietary APIs. I wanted to explore whether modern open-source models were now capable of delivering real-time conversational experiences end-to-end on commodity GPU hardware.
+
+This project also allowed me to work across several challenging engineering domains simultaneously:
+
+* Real-time audio streaming
+* WebSockets
+* GPU inference optimization
+* Speech processing
+* Async orchestration between AI models
+* Latency-sensitive system design
+
+Rather than simply chaining models together, the focus was on making the interaction feel responsive and natural for spoken conversation.
+
+---
+
+# 🧠 Pipeline Architecture
+
+```text
+Browser mic → PCM audio → WebSocket
+                               ↓
+                  [JarvisLabs GPU Instance]
+                               ↓
+               faster-whisper (Whisper Small)   ← STT
+                               ↓
+               Mistral 7B via Ollama            ← LLM
+                               ↓
+               Piper TTS (en_US-lessac-medium)  ← TTS
+                               ↓
+              WAV audio → WebSocket → Browser speaker
+```
+
+---
+
+# ⚡ Latency Benchmarks
+
+Measured on a JarvisLabs RTX 4090 instance.
+
+| Stage                      | Avg Time   |
+| -------------------------- | ---------- |
+| STT — faster-whisper small | ~0.20s     |
+| LLM — Mistral 7B (Ollama)  | ~0.55s     |
+| TTS — Piper                | ~0.15s     |
+| **End-to-End**             | **~0.90s** |
+
+---
+
+# ⚙️ What I Did to Reduce Latency
+
+* Used **faster-whisper (CTranslate2)** instead of the original Whisper implementation (~5× faster inference)
+* Enabled `float16` GPU inference
+* Used VAD filtering to skip silence immediately
+* Kept responses intentionally concise (1–2 spoken-friendly sentences)
+* Used Piper TTS because it synthesizes audio in ~150ms
+* Used persistent WebSocket connections instead of REST requests
+* Streamed audio directly rather than saving intermediate files
+
+---
+
+# 🛍️ Grounded Use Case — ShopEasy Customer Support
+
+Aria is specifically grounded as a customer support assistant for **ShopEasy**.
+
+She can help users with:
+
+* 📦 Order tracking
+* 🔄 Returns and refunds
+* 🚚 Shipping information
+* 🔑 Account access issues
+* 💳 Payments and invoices
+* 📧 Escalation to human support
+
+The assistant is intentionally constrained to customer-support-related topics to keep responses reliable and focused.
+
+---
+
+# 🛠️ Tech Stack
+
+| Component  | Technology           |
+| ---------- | -------------------- |
+| ASR        | faster-whisper       |
+| LLM        | Mistral 7B           |
+| TTS        | Piper                |
+| Backend    | FastAPI + WebSockets |
+| Frontend   | HTML + JavaScript    |
+| Deployment | JarvisLabs GPU       |
+
+---
+
+# ▶️ Setup & Run
 
 ## 1. Clone the Repository
 
@@ -37,43 +148,11 @@ cd voice-assistant
 
 ```bash
 pip install -r requirements.txt
-pip install piper-tts
 ```
 
 ---
 
-## 3. Configure Environment Variables
-
-```bash
-cp .env.example .env
-```
-
-Update `.env` with your preferred model paths and inference backend.
-
----
-
-## 4. Start the LLM Backend
-
-### Option A — Ollama
-
-```bash
-ollama pull mistral
-ollama serve
-```
-
-### Option B — vLLM (Recommended)
-
-```bash
-pip install vllm
-
-python -m vllm.entrypoints.openai.api_server \
-  --model mistralai/Mistral-7B-Instruct-v0.2 \
-  --dtype float16
-```
-
----
-
-## 5. Download a Piper Voice
+## 3. Download Piper Voice
 
 ```bash
 mkdir -p models
@@ -85,95 +164,122 @@ python -m piper \
 
 ---
 
-## 6. Start the FastAPI Server
+## 4. Install & Start Ollama
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+
+ollama serve &
+ollama pull mistral
+```
+
+---
+
+## 5. Run the FastAPI Server
 
 ```bash
 uvicorn server.main:app --host 0.0.0.0 --port 8080
 ```
 
-Open:
+---
+
+## 6. Open in Browser
+
+Visit your JarvisLabs public URL on port `8080`.
+
+### Controls
+
+* Hold `Space` to talk
+* Or click the orb button
+* Release to send audio
+
+---
+
+# 📁 Project Structure
 
 ```text
-http://localhost:8080
+voice-assistant/
+├── server/
+│   ├── main.py      # FastAPI + WebSocket server
+│   ├── stt.py       # faster-whisper speech recognition
+│   ├── llm.py       # Mistral 7B via Ollama
+│   └── tts.py       # Piper text-to-speech
+│
+├── client/
+│   └── index.html   # Browser UI
+│
+├── models/          # Downloaded Piper voices
+├── requirements.txt
+├── .env.example
+└── README.md
 ```
 
-Hold `Space` or click the orb to talk.
-
 ---
 
-# Architecture Decisions
+# 🤖 What I Used AI For
 
-## WebSockets Instead of REST
+I used AI coding assistants primarily for:
 
-I used WebSockets for bidirectional audio streaming because voice interaction requires continuous low-latency communication. REST would introduce unnecessary request overhead and make real-time streaming significantly harder.
+* Initial FastAPI boilerplate generation
+* Basic WebSocket scaffolding
+* Browser microphone capture setup
+* README formatting and iteration
+* Debugging repetitive integration issues
 
----
-
-## Faster-Whisper Over OpenAI Whisper API
-
-I chose Faster-Whisper because it runs locally, has lower latency, and avoids recurring API costs. Since the goal was a fully open-source local assistant, depending on a hosted STT API would defeat the purpose.
-
----
-
-## vLLM for LLM Inference
-
-I used vLLM instead of raw Hugging Face transformers because it provides significantly faster token generation and optimized GPU memory handling. This reduced overall response latency while making larger models feasible on limited VRAM.
-
----
-
-## Piper Instead of Cloud TTS
-
-Most cloud TTS services sound great but introduce network latency and API dependency. Piper offered an excellent tradeoff between speed, offline capability, and acceptable voice quality.
-
----
-
-## Push-to-Talk Instead of Always Listening
-
-I intentionally started with push-to-talk interaction because continuous wake-word systems add substantial complexity around VAD, false activations, and streaming pipelines. This kept the initial system simpler and more reliable.
-
----
-
-# What I Used AI For
-
-I used AI tools primarily for boilerplate acceleration and debugging assistance.
-
-AI helped generate:
-
-* Initial FastAPI WebSocket scaffolding
-* Basic browser audio capture code
-* Some repetitive setup/configuration commands
-* README structure drafts
-
-The core orchestration logic, latency optimization decisions, streaming pipeline design, and system integration were written and refined manually.
+The core system orchestration, latency optimization decisions, streaming pipeline design, async coordination, and architecture decisions were implemented manually.
 
 I also overrode several AI-generated suggestions:
 
-* I removed polling-based communication in favor of persistent WebSockets because polling introduced avoidable latency.
-* I avoided oversized Whisper models despite AI recommendations for accuracy, prioritizing responsiveness instead.
-* I simplified the frontend interaction model after AI-generated UI suggestions added unnecessary complexity.
+* Replaced polling-based communication with persistent WebSockets
+* Avoided larger Whisper models because latency mattered more than marginal accuracy gains
+* Simplified frontend interactions to prioritize responsiveness over UI complexity
 
-Most of the engineering effort ultimately went into connecting independent components into a stable low-latency pipeline rather than generating isolated code snippets.
+Most of the engineering effort ultimately went into making independently functioning models behave like a cohesive real-time conversational system.
 
 ---
 
-# What I Would Change With 4 More Weeks
+# 🔮 What I’d Improve With 4 More Weeks
 
-If I were shipping this to real users, I would focus heavily on streaming and reliability improvements.
+If shipping this to real users, I would focus heavily on streaming and production reliability improvements.
 
-The biggest upgrade would be true streaming speech synthesis — generating audio sentence-by-sentence while the LLM is still responding. This would significantly reduce perceived latency and make conversations feel much more natural.
+### Highest-priority upgrades:
 
-Other major improvements would include:
-
-* Wake-word detection for hands-free usage
+* True streaming TTS (generate speech sentence-by-sentence while the LLM is still decoding)
+* Wake-word detection
 * Voice activity detection (VAD)
-* Interruptible speech generation
+* Interruptible speech playback
 * Persistent conversation memory
+* Real order-management API integration
 * Multi-user session handling
 * Dockerized deployment
+* Observability dashboards for latency/GPU monitoring
 * Better frontend UX and accessibility
+* Mobile support
 * Multi-language support
-* Observability dashboards for latency monitoring
 
-I would also benchmark smaller instruction-tuned models to optimize the latency/quality tradeoff further for consumer GPUs.
+I would also benchmark smaller reasoning models to further optimize the latency-quality tradeoff for consumer GPUs.
+
+---
+
+# 🚢 Deployment
+
+The complete system was deployed on JarvisLabs GPU infrastructure.
+
+JarvisLabs was used for:
+
+* Whisper inference
+* Mistral 7B inference
+* Piper TTS synthesis
+* Hosting the FastAPI application
+
+---
+
+# 🙏 Acknowledgements
+
+* faster-whisper
+* Ollama
+* Piper TTS
+* FastAPI
+* JarvisLabs
 
 ---
